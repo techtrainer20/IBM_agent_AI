@@ -1,1 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent AI</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    #chatbox { width: 100%; height: 300px; border: 1px solid #ccc; padding: 10px; overflow-y: scroll; }
+    #user-input { width: 80%; padding: 10px; }
+    #send { padding: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Agent AI</h1>
+  <div id="chatbox"></div>
+  <input type="text" id="user-input" placeholder="Type your message here..." />
+  <button id="send">Send</button>
+
+  <script>
+    const API_KEY = "380beea6-2fd6-4f64-97ec-9f66ad01ea81";
+
+    function getToken() {
+      return new Promise((resolve, reject) => {
+        const req = new XMLHttpRequest();
+        req.open("POST", "https://iam.cloud.ibm.com/identity/token");
+        req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+        req.setRequestHeader("Accept", "application/json");
+        req.onload = () => resolve(JSON.parse(req.responseText));
+        req.onerror = () => reject("Token request failed");
+        req.send("grant_type=urn:ibm:params:oauth:grant-type:apikey&apikey=" + API_KEY);
+      });
+    }
+
+    function apiPost(scoring_url, token, payload) {
+      return new Promise((resolve, reject) => {
+        const req = new XMLHttpRequest();
+        req.open("POST", scoring_url);
+        req.setRequestHeader("Accept", "application/json");
+        req.setRequestHeader("Authorization", "Bearer " + token);
+        req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+        req.onload = () => resolve(JSON.parse(req.responseText));
+        req.onerror = () => reject("API request failed");
+        req.send(JSON.stringify(payload));
+      });
+    }
+
+    const chatbox = document.getElementById("chatbox");
+    const input = document.getElementById("user-input");
+    const send = document.getElementById("send");
+
+    send.addEventListener("click", async () => {
+      const userMessage = input.value;
+      if (!userMessage) return;
+
+      chatbox.innerHTML += `<div><strong>You:</strong> ${userMessage}</div>`;
+      input.value = "";
+
+      try {
+        const tokenData = await getToken();
+        const payload = {
+          input: { text: userMessage },
+          user: "user"
+        };
+
+        const scoring_url = "https://eu-de.ml.cloud.ibm.com/ml/v4/deployments/380beea6-2fd6-4f64-97ec-9f66ad01ea81/ai_service?version=2021-05-01";
+
+        const response = await apiPost(scoring_url, tokenData.access_token, payload);
+        const botResponse = response.predictions?.[0]?.results?.[0]?.text || "No response";
+
+        chatbox.innerHTML += `<div><strong>Agent AI:</strong> ${botResponse}</div>`;
+        chatbox.scrollTop = chatbox.scrollHeight;
+      } catch (error) {
+        console.error(error);
+        chatbox.innerHTML += `<div style="color:red"><strong>Error:</strong> ${error}</div>`;
+      }
+    });
+  </script>
+</body>
+</html>
 
